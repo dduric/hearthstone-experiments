@@ -21,7 +21,7 @@ git clone https://github.com/dduric/hearthstone-experiments.git
 cd hearthstone-experiments
 ```
 
-# Start iPython
+# Start liveParser with iPython
 ```
 ~/hearthstone-experiments$ ipython
 Python 3.6.5 (default, Mar 29 2018, 03:28:50) 
