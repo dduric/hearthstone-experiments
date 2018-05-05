@@ -28,7 +28,7 @@ Python 3.6.5 (default, Mar 29 2018, 03:28:50)
 Type 'copyright', 'credits' or 'license' for more information
 IPython 6.3.1 -- An enhanced Interactive Python. Type '?' for help.
 ```
-## take a look at example.py
+## - take a look at example.py
 
 ```
 In [1]: cat example.py
@@ -64,7 +64,7 @@ In [3]: file = '/tmp/hearthstone-redirected.log'
    ...: 
 
 ```
-## liveParser will pick up on games in the log file
+## - liveParser will pick up on games in the log file
 ```
 In [6]: liveParser.games
 Out[6]: 
@@ -78,7 +78,7 @@ Out[6]:
  <hslog.packets.PacketTree at 0x7fd478a91198>]
 
 ```
-## you can select the last/current game and play around
+## - you can select the last/current game and play around
 ```
 In [7]: g = liveParser.games[-1] # select the last/current game
 
