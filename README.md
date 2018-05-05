@@ -179,4 +179,8 @@ Out[10]:
  Card(id=83, card_id='GIL_526e'),
  Card(id=84, card_id='GIL_614e2'),
  Card(id=85, card_id='GIL_614e1')]
+ ```
+ ## - stop liveParser
+ ```
+ In [11]: liveParser.stop()
 ```
