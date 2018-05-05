@@ -30,7 +30,7 @@ class BaseExporter:
 		}
 
 	def export(self):
-		for packet in enumerate(self.packet_tree):
+		for packet in self.packet_tree:
 			self.export_packet(packet)
 		return self
 
