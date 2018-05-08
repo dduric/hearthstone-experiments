@@ -47,8 +47,8 @@ class PacketTree:
 						yield p
 
 		for packet in _iter_recursive(self.packets, cls):
-			print('yielding', packet)
 			yield packet
+
 
 class Packet:
 	power_type = 0

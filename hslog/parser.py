@@ -12,6 +12,7 @@ from .exceptions import ParsingError, RegexParsingError
 from .player import LazyPlayer, PlayerManager
 from .utils import parse_enum, parse_tag
 
+
 def parse_entity_id(entity):
 	if entity.isdigit():
 		return int(entity)
@@ -27,10 +28,10 @@ def parse_entity_id(entity):
 
 
 def parse_initial_tag(data):
-	'''
+	"""
 	Parse \a data, a line formatted as tag=FOO value=BAR
 	Returns the values as int.
-	'''
+	"""
 	sre = tokens.TAG_VALUE_RE.match(data)
 	if not sre:
 		raise RegexParsingError(data)
@@ -39,13 +40,13 @@ def parse_initial_tag(data):
 
 
 def clean_option_errors(error, error_param):
-	'''
+	"""
 	As of 8.0.0.18336, all option packets are accompanied by an error and an
 	errorParam argument.
 	This function turns both into their respective types.
-	'''
+	"""
 
-	if error == 'NONE':
+	if error == "NONE":
 		error = None
 	else:
 		error = parse_enum(PlayReq, error)
@@ -74,29 +75,29 @@ class PowerHandler:
 		if tag == GameTag.MULLIGAN_STATE and value == Mulligan.DEALING:
 			assert self.current_block
 			if isinstance(self.current_block, packets.Block):
-				logging.warning('WARNING: Broken mulligan nesting. Working around...')
+				logging.warning("WARNING: Broken mulligan nesting. Working around...")
 				self.block_end(ts)
 
 	def find_callback(self, method):
-		if method == self.parse_method('DebugPrintPower'):
+		if method == self.parse_method("DebugPrintPower"):
 			return self.handle_data
-		elif method == self.parse_method('DebugPrintGame'):
+		elif method == self.parse_method("DebugPrintGame"):
 			return self.handle_game
 
 	def handle_game(self, ts, data):
-		if data.startswith('PlayerID='):
+		if data.startswith("PlayerID="):
 			sre = tokens.GAME_PLAYER_META.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			player_id, player_name = sre.groups()
 			player_id = int(player_id)
 		else:
-			key, value = data.split('=')
+			key, value = data.split("=")
 			key = key.strip()
 			value = value.strip()
-			if key == 'GameType':
+			if key == "GameType":
 				value = parse_enum(GameType, value)
-			elif key == 'FormatType':
+			elif key == "FormatType":
 				value = parse_enum(FormatType, value)
 			else:
 				value = int(value)
@@ -105,42 +106,38 @@ class PowerHandler:
 
 	def handle_data(self, ts, data):
 		opcode = data.split()[0]
-		
-		if opcode == 'ERROR:':
+
+		if opcode == "ERROR:":
 			# Line error... skip
 			return
-		
-		'''
-			If opcode is recognized it will be sent to self.handle_power for processing
-			otherwise it falls through to error handling
-		'''
+
 		if opcode in PowerType.__members__:
 			return self.handle_power(ts, opcode, data)
 
-		if opcode == 'GameEntity':
+		if opcode == "GameEntity":
 			self.flush()
 			self._creating_game = True
 			sre = tokens.GAME_ENTITY_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
-			entity_id, = sre.groups()
-			if int(entity_id) != 1:
-				raise ParsingError(f'GameEntity ID: Expected 1, got {entity_id}')
-		elif opcode == 'Player':
+			id, = sre.groups()
+			if int(id) != 1:
+				raise ParsingError("GameEntity ID: Expected 1, got %r" % (id))
+		elif opcode == "Player":
 			self.flush()
 			sre = tokens.PLAYER_ENTITY_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			self.register_player(ts, *sre.groups())
-		elif opcode.startswith('tag='):
+		elif opcode.startswith("tag="):
 			tag, value = parse_initial_tag(data)
 			self._entity_packet.tags.append((tag, value))
 			if tag == GameTag.CONTROLLER:
 				# We need to know entity controllers for player name registration
 				self._packets.manager.register_controller(self._entity_packet.entity, value)
-		elif opcode.startswith('Info['):
+		elif opcode.startswith("Info["):
 			if not self._metadata_node:
-				logging.warning(f'Metadata Info outside of META_DATA: {data}')
+				logging.warning("Metadata Info outside of META_DATA: %r", data)
 				return
 			sre = tokens.METADATA_INFO_RE.match(data)
 			if not sre:
@@ -159,14 +156,14 @@ class PowerHandler:
 	def handle_power(self, ts, opcode, data):
 		self.flush()
 
-		if opcode == 'CREATE_GAME':
+		if opcode == "CREATE_GAME":
 			regex, callback = tokens.CREATE_GAME_RE, self.create_game
-		elif opcode in ('ACTION_START', 'BLOCK_START'):
+		elif opcode in ("ACTION_START", "BLOCK_START"):
 			index = None
 			effectid, effectindex = None, None
 			suboption, trigger_keyword = None, None
-			if ' SubOption=' in data:
-				if ' TriggerKeyword=' in data:
+			if " SubOption=" in data:
+				if " TriggerKeyword=" in data:
 					sre = tokens.BLOCK_START_20457_TRIGGER_KEYWORD_RE.match(data)
 					if sre is None:
 						raise RegexParsingError(data)
@@ -177,7 +174,7 @@ class PowerHandler:
 						raise RegexParsingError(data)
 					type, entity, effectid, effectindex, target, suboption = sre.groups()
 			else:
-				if opcode == 'ACTION_START':
+				if opcode == "ACTION_START":
 					sre = tokens.ACTION_START_RE.match(data)
 				else:
 					sre = tokens.BLOCK_START_12051_RE.match(data)
@@ -194,29 +191,29 @@ class PowerHandler:
 				ts, entity, type, index, effectid, effectindex, target, suboption, trigger_keyword
 			)
 			return
-		elif opcode in ('ACTION_END', 'BLOCK_END'):
+		elif opcode in ("ACTION_END", "BLOCK_END"):
 			regex, callback = tokens.BLOCK_END_RE, self.block_end
-		elif opcode == 'FULL_ENTITY':
-			if data.startswith('FULL_ENTITY - Updating'):
+		elif opcode == "FULL_ENTITY":
+			if data.startswith("FULL_ENTITY - Updating"):
 				regex, callback = tokens.FULL_ENTITY_UPDATE_RE, self.full_entity_update
 			else:
 				regex, callback = tokens.FULL_ENTITY_CREATE_RE, self.full_entity
-		elif opcode == 'SHOW_ENTITY':
+		elif opcode == "SHOW_ENTITY":
 			regex, callback = tokens.SHOW_ENTITY_RE, self.show_entity
-		elif opcode == 'HIDE_ENTITY':
+		elif opcode == "HIDE_ENTITY":
 			regex, callback = tokens.HIDE_ENTITY_RE, self.hide_entity
-		elif opcode == 'CHANGE_ENTITY':
+		elif opcode == "CHANGE_ENTITY":
 			regex, callback = tokens.CHANGE_ENTITY_RE, self.change_entity
-		elif opcode == 'TAG_CHANGE':
+		elif opcode == "TAG_CHANGE":
 			regex, callback = tokens.TAG_CHANGE_RE, self.tag_change
-		elif opcode == 'META_DATA':
+		elif opcode == "META_DATA":
 			regex, callback = tokens.META_DATA_RE, self.meta_data
 		else:
 			raise NotImplementedError(data)
 
 		sre = regex.match(data)
 		if not sre:
-			logging.warning('Could not correctly parse %r', data)
+			logging.warning("Could not correctly parse %r", data)
 			return
 		return callback(ts, *sre.groups())
 
@@ -226,7 +223,7 @@ class PowerHandler:
 		self._packets.manager = PlayerManager()
 		self.current_block = self._packets
 		self.games.append(self._packets)
-		return self._packets # why?
+		return self._packets
 
 	# Messages
 	def create_game(self, ts):
@@ -259,7 +256,7 @@ class PowerHandler:
 
 	def block_end(self, ts):
 		if not self.current_block.parent:
-			logging.warning('[%s] Orphaned BLOCK_END detected', ts)
+			logging.warning("[%s] Orphaned BLOCK_END detected", ts)
 			return self.current_block
 		self.current_block.end()
 		block = self.current_block
@@ -276,12 +273,12 @@ class PowerHandler:
 			self._creating_game = False
 			# It should always have ID 4
 			if id != 4:
-				raise ParsingError('Expected entity 4 after creating game, got %r' % (id))
+				raise ParsingError("Expected entity 4 after creating game, got %r" % (id))
 
 			# While we're at it, we check if we got an abnormal amount of players
 			player_count = len(self._game_packet.players)
 			if player_count != 2:
-				raise ParsingError('Expected exactly 2 players, got %r' % (player_count))
+				raise ParsingError("Expected exactly 2 players, got %r" % (player_count))
 
 		return self._entity_packet
 
@@ -299,7 +296,7 @@ class PowerHandler:
 		id = parse_entity_id(entity)
 		tag, value = parse_tag(tag, value)
 		if tag != GameTag.ZONE:
-			raise ParsingError('HIDE_ENTITY got non-zone tag (%r)' % (tag))
+			raise ParsingError("HIDE_ENTITY got non-zone tag (%r)" % (tag))
 		packet = packets.HideEntity(ts, id, value)
 		self.register_packet(packet)
 		return packet
@@ -341,13 +338,13 @@ class OptionsHandler:
 		self._suboption_packet = None
 
 	def find_callback(self, method):
-		if method == self.parse_method('SendOption'):
+		if method == self.parse_method("SendOption"):
 			return self.handle_send_option
-		elif method == self.parse_method('DebugPrintOptions'):
+		elif method == self.parse_method("DebugPrintOptions"):
 			return self.handle_options
 
 	def _parse_option_packet(self, ts, data):
-		if ' errorParam=' in data:
+		if " errorParam=" in data:
 			sre = tokens.OPTIONS_OPTION_ERROR_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
@@ -366,7 +363,7 @@ class OptionsHandler:
 			entity = self.parse_entity_or_player(entity)
 		self._option_packet = packets.Option(ts, entity, id, type, optype, error, error_param)
 		if not self._options_packet:
-			raise ParsingError('Option without a parent option group: %r' % (data))
+			raise ParsingError("Option without a parent option group: %r" % (data))
 
 		self.register_packet(self._option_packet, node=self._options_packet.options)
 		self._suboption_packet = None
@@ -374,7 +371,7 @@ class OptionsHandler:
 		return self._option_packet
 
 	def _parse_suboption_packet(self, ts, data):
-		if ' errorParam=' in data:
+		if " errorParam=" in data:
 			sre = tokens.OPTIONS_SUBOPTION_ERROR_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
@@ -389,25 +386,25 @@ class OptionsHandler:
 
 		id = int(id)
 		if not entity:
-			raise ParsingError('SubOption / target got an empty entity: %r' % (data))
+			raise ParsingError("SubOption / target got an empty entity: %r" % (data))
 
 		entity = self.parse_entity_or_player(entity)
 		packet = packets.Option(ts, entity, id, None, optype, error, error_param)
-		if optype == 'subOption':
+		if optype == "subOption":
 			self._suboption_packet = packet
 			node = self._option_packet
-		elif optype == 'target':
+		elif optype == "target":
 			node = self._suboption_packet or self._option_packet
 
 		if not node:
-			raise ParsingError('SubOption / target without a matching option: %r' % (data))
+			raise ParsingError("SubOption / target without a matching option: %r" % (data))
 
 		self.register_packet(packet, node=node.options)
 
 		return packet
 
 	def handle_options(self, ts, data):
-		if data.startswith('id='):
+		if data.startswith("id="):
 			sre = tokens.OPTIONS_ENTITY_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
@@ -415,13 +412,13 @@ class OptionsHandler:
 			id = int(id)
 			self._options_packet = packets.Options(ts, id)
 			self.current_block.packets.append(self._options_packet)
-		elif data.startswith('option '):
+		elif data.startswith("option "):
 			return self._parse_option_packet(ts, data)
-		elif data.startswith(('subOption ', 'target ')):
+		elif data.startswith(("subOption ", "target ")):
 			return self._parse_suboption_packet(ts, data)
 
 	def handle_send_option(self, ts, data):
-		if data.startswith('selectedOption='):
+		if data.startswith("selectedOption="):
 			sre = tokens.SEND_OPTION_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
@@ -429,7 +426,7 @@ class OptionsHandler:
 			packet = packets.SendOption(ts, int(option), int(suboption), int(target), int(position))
 			self.register_packet(packet)
 			return packet
-		raise NotImplementedError('Unhandled send option: %r' % (data))
+		raise NotImplementedError("Unhandled send option: %r" % (data))
 
 
 class ChoicesHandler:
@@ -440,13 +437,13 @@ class ChoicesHandler:
 		self._send_choice_packet = None
 
 	def find_callback(self, method):
-		if method == self.parse_method('DebugPrintEntityChoices'):
+		if method == self.parse_method("DebugPrintEntityChoices"):
 			return self.handle_entity_choices
-		elif method == self.parse_method('DebugPrintChoices'):
+		elif method == self.parse_method("DebugPrintChoices"):
 			return self.handle_entity_choices_old
-		elif method == self.parse_method('SendChoices'):
+		elif method == self.parse_method("SendChoices"):
 			return self.handle_send_choices
-		elif method == self.parse_method('DebugPrintEntitiesChosen'):
+		elif method == self.parse_method("DebugPrintEntitiesChosen"):
 			return self.handle_entities_chosen
 
 	def flush(self):
@@ -460,7 +457,7 @@ class ChoicesHandler:
 			self._send_choice_packet = None
 
 	def handle_entity_choices_old(self, ts, data):
-		if data.startswith('id='):
+		if data.startswith("id="):
 			sre = tokens.CHOICES_CHOICE_OLD_1_RE.match(data)
 			if sre:
 				self.register_choices_old_1(ts, *sre.groups())
@@ -473,34 +470,34 @@ class ChoicesHandler:
 			return self.handle_entity_choices(ts, data)
 
 	def handle_entity_choices(self, ts, data):
-		if data.startswith('id='):
+		if data.startswith("id="):
 			sre = tokens.CHOICES_CHOICE_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			return self.register_choices(ts, *sre.groups())
-		elif data.startswith('Source='):
+		elif data.startswith("Source="):
 			sre = tokens.CHOICES_SOURCE_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			entity, = sre.groups()
 			id = self.parse_entity_or_player(entity)
 			if not self._choice_packet:
-				raise ParsingError('Source Choice Entity outside of choie packet: %r' % (data))
+				raise ParsingError("Source Choice Entity outside of choie packet: %r" % (data))
 			self._choice_packet.source = id
 			return id
-		elif data.startswith('Entities['):
+		elif data.startswith("Entities["):
 			sre = tokens.CHOICES_ENTITIES_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			idx, entity = sre.groups()
 			id = self.parse_entity_or_player(entity)
 			if not id:
-				raise ParsingError('Missing choice entity %r (%r)' % (id, entity))
+				raise ParsingError("Missing choice entity %r (%r)" % (id, entity))
 			if not self._choice_packet:
-				raise ParsingError('Choice Entity outside of choice packet: %r' % (data))
+				raise ParsingError("Choice Entity outside of choice packet: %r" % (data))
 			self._choice_packet.choices.append(id)
 			return id
-		raise NotImplementedError('Unhandled entity choice: %r' % (data))
+		raise NotImplementedError("Unhandled entity choice: %r" % (data))
 
 	def _register_choices(self, ts, id, player, tasklist, type, min, max):
 		id = int(id)
@@ -532,7 +529,7 @@ class ChoicesHandler:
 		return self._register_choices(ts, id, player, tasklist, type, min, max)
 
 	def handle_send_choices(self, ts, data):
-		if data.startswith('id='):
+		if data.startswith("id="):
 			sre = tokens.SEND_CHOICES_CHOICE_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
@@ -542,22 +539,22 @@ class ChoicesHandler:
 			self._send_choice_packet = packets.SendChoices(ts, id, type)
 			self.register_packet(self._send_choice_packet)
 			return self._send_choice_packet
-		elif data.startswith('m_chosenEntities'):
+		elif data.startswith("m_chosenEntities"):
 			sre = tokens.SEND_CHOICES_ENTITIES_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			idx, entity = sre.groups()
 			id = self.parse_entity_or_player(entity)
 			if not id:
-				raise ParsingError('Missing chosen entity %r (%r)' % (id, entity))
+				raise ParsingError("Missing chosen entity %r (%r)" % (id, entity))
 			if not self._send_choice_packet:
-				raise ParsingError('Chosen Entity outside of choice packet: %r' % (data))
+				raise ParsingError("Chosen Entity outside of choice packet: %r" % (data))
 			self._send_choice_packet.choices.append(id)
 			return id
-		raise NotImplementedError('Unhandled send choice: %r' % (data))
+		raise NotImplementedError("Unhandled send choice: %r" % (data))
 
 	def handle_entities_chosen(self, ts, data):
-		if data.startswith('id='):
+		if data.startswith("id="):
 			sre = tokens.ENTITIES_CHOSEN_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
@@ -568,21 +565,21 @@ class ChoicesHandler:
 			self._chosen_packet = packets.ChosenEntities(ts, player, id)
 			self.register_packet(self._chosen_packet)
 			return self._chosen_packet
-		elif data.startswith('Entities['):
+		elif data.startswith("Entities["):
 			sre = tokens.ENTITIES_CHOSEN_ENTITIES_RE.match(data)
 			if not sre:
 				raise RegexParsingError(data)
 			idx, entity = sre.groups()
 			id = self.parse_entity_or_player(entity)
 			if not id:
-				raise ParsingError('Missing entity chosen %r (%r)' % (id, entity))
+				raise ParsingError("Missing entity chosen %r (%r)" % (id, entity))
 			if not self._chosen_packet:
-				raise ParsingError('Entity Chosen outside of choice packet: %r' % (data))
+				raise ParsingError("Entity Chosen outside of choice packet: %r" % (data))
 			self._chosen_packet.choices.append(id)
 			if len(self._chosen_packet.choices) > self._chosen_packet_count:
-				raise ParsingError('Too many choices (expected %r)' % (self._chosen_packet_count))
+				raise ParsingError("Too many choices (expected %r)" % (self._chosen_packet_count))
 			return id
-		raise NotImplementedError('Unhandled entities chosen: %r' % (data))
+		raise NotImplementedError("Unhandled entities chosen: %r" % (data))
 
 
 class SpectatorModeHandler:
@@ -612,8 +609,7 @@ class SpectatorModeHandler:
 		elif line == tokens.SPECTATOR_MODE_END_GAME:
 			self.set_spectating(False, False)
 		else:
-			raise NotImplementedError('Unhandled spectator mode: %r' % (line))
-
+			raise NotImplementedError("Unhandled spectator mode: %r" % (line))
 
 
 class LogParser(
@@ -623,11 +619,11 @@ class LogParser(
 		super(LogParser, self).__init__()
 		self.games = []
 		self.line_regex = tokens.POWERLOG_LINE_RE
-		self._game_state_processor = 'GameState'
+		self._game_state_processor = "GameState"
 		self._current_date = None
 		self._synced_timestamp = False
 
-	def parse_timestamp(self, ts):
+	def parse_timestamp(self, ts, method):
 		ret = parse_time(ts)
 
 		if not self._synced_timestamp:
@@ -667,34 +663,22 @@ class LogParser(
 			raise RegexParsingError(line)
 		level, ts, line = sre.groups()
 		if line.startswith(tokens.SPECTATOR_MODE_TOKEN):
-			line = line.replace(tokens.SPECTATOR_MODE_TOKEN, '').strip()
+			line = line.replace(tokens.SPECTATOR_MODE_TOKEN, "").strip()
 			return self.process_spectator_mode(line)
 
 		sre = self.line_regex.match(line)
 		if not sre:
 			return
 		method, msg = sre.groups()
-		
 		msg = msg.strip()
-		if not self.current_block and 'CREATE_GAME' not in msg:
+		if not self.current_block and "CREATE_GAME" not in msg:
 			# Ignore messages before the first CREATE_GAME packet
 			return
 
 		for handler in PowerHandler, ChoicesHandler, OptionsHandler:
 			callback = handler.find_callback(self, method)
 			if callback:
-				ts = self.parse_timestamp(ts)
-				'''
-					callbacks:
-					DebugPrintPower: 			self.handle_data
-					DebugPrintGame: 			self.handle_game
-					SendOption: 				self.handle_send_option
-					DebugPrintOptions: 			self.handle_options
-					DebugPrintEntityChoices: 	self.handle_entity_choices
-					DebugPrintChoices:			self.handle_entity_choices_old
-					SendChoices:				self.handle_send_choices
-					DebugPrintEntitiesChosen:	self.handle_entities_chosen
-				'''
+				ts = self.parse_timestamp(ts, method)
 				return callback(ts, msg)
 
 	def register_packet(self, packet, node=None):
@@ -705,7 +689,7 @@ class LogParser(
 		packet.packet_id = self._packets._packet_counter
 
 	def parse_entity_or_player(self, entity):
-		if entity == '-1':
+		if entity == "-1":
 			return
 
 		id = parse_entity_id(entity)
@@ -714,8 +698,8 @@ class LogParser(
 			id = self._packets.manager.get_player_by_name(entity)
 		return id
 
-	def parse_method(self, method):
-		return f'{self._game_state_processor}.{method}'
+	def parse_method(self, m):
+		return "%s.%s" % (self._game_state_processor, m)
 
 	def register_player(self, ts, id, player_id, hi, lo):
 		id = int(id)
